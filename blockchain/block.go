@@ -30,8 +30,8 @@ type Validator struct {
 	Stake int
 }
 
-func NewBlockChain() *BlockChain {
-	return &BlockChain{Blocks: []Block{createGenesis([]byte("each one teach one"))}}
+func NewBlockChain(data []byte) *BlockChain {
+	return &BlockChain{Blocks: []Block{createGenesis(data)}}
 }
 
 func (bc *BlockChain) AddBlock(data string, validator Validator) { // for now adding block with simple string
