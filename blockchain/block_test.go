@@ -94,7 +94,7 @@ func Test_createGenesis(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			now = func() time.Time { return tt.mock }
-			got := createGenesis()
+			got := createGenesis([]byte("each one teach one"))
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -102,7 +102,7 @@ func Test_createGenesis(t *testing.T) {
 
 func TestBlockChain_AddBlock(t *testing.T) {
 	now = func() time.Time { return time.Date(1983, 10, 25, 0, 0, 0, 0, time.UTC) }
-	genesisBlock := createGenesis()
+	genesisBlock := createGenesis([]byte("each one teach one"))
 
 	tests := []struct {
 		name      string
