@@ -156,7 +156,7 @@ func TestNewBlockChain(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewBlockChain()
+			got := NewBlockChain([]byte("each one teach one"))
 			assert.Equal(t, tt.want, got)
 		})
 	}
