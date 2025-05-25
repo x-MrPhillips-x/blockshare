@@ -31,7 +31,7 @@ type Validator struct {
 }
 
 func NewBlockChain() *BlockChain {
-	return &BlockChain{Blocks: []Block{createGenesis()}}
+	return &BlockChain{Blocks: []Block{createGenesis([]byte("each one teach one"))}}
 }
 
 func (bc *BlockChain) AddBlock(data string, validator Validator) { // for now adding block with simple string
@@ -60,10 +60,10 @@ func (bc *BlockChain) AddBlock(data string, validator Validator) { // for now ad
 	bc.Blocks = append(bc.Blocks, newBlock)
 }
 
-func createGenesis() Block {
+func createGenesis(data []byte) Block {
 	b := Block{
 		Timestamp:     now(),
-		Data:          []byte("each one teach one"),
+		Data:          data,
 		PrevBlockHash: "",
 		Hash:          "",
 		Nonce:         0,
