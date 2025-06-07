@@ -1,9 +1,12 @@
 package blockchain
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,73 +23,59 @@ type Block struct {
 	Validators    []Validator
 }
 
-type BlockChain struct {
-	Blocks []Block
-}
-
 // Validator stake will increase with each ride and/or driver transaction
 type Validator struct {
 	UUID  uuid.UUID
 	Stake int
 }
 
-func NewBlockChain(data []byte) *BlockChain {
-	return &BlockChain{Blocks: []Block{createGenesis(data)}}
-}
-
-func (bc *BlockChain) AddBlock(data string, validator Validator) { // for now adding block with simple string
-	prevBlock := bc.Blocks[len(bc.Blocks)-1]
-	newBlock := Block{
-		Timestamp:     now(),
-		PrevBlockHash: prevBlock.Hash,
+func CreateBlock(data []byte, prevHash string) *Block {
+	block := &Block{
+		Timestamp:     time.Now(),
 		Hash:          "",
-		Data:          []byte(data),
-	}
-
-	// todo proof of stake
-	pos := NewProof(newBlock)
-	pos.Run()
-
-	// todo validate
-	if pos.Requirements.OnOffenderList || !pos.Requirements.CarInsurance {
-		return
-	}
-
-	if !pos.Requirements.ConfirmRequirements {
-		return
-	}
-
-	newBlock.Hash = newBlock.calculateHash(validator)
-	bc.Blocks = append(bc.Blocks, newBlock)
-}
-
-func createGenesis(data []byte) Block {
-	b := Block{
-		Timestamp:     now(),
 		Data:          data,
-		PrevBlockHash: "",
-		Hash:          "",
+		PrevBlockHash: prevHash,
 		Nonce:         0,
 	}
 
-	b.Hash = b.calculateHash(Validator{
-		UUID: uuid.Nil,
-	})
-
-	return b
+	pos := NewProof(block)
+	nonce, hash := pos.Run()
+	block.Hash = string(hash)
+	block.Nonce = nonce
+	return block
 }
 
-func (b *Block) calculateHash(validator Validator) string {
+func Genesis(data []byte) *Block {
+	return CreateBlock(data, "")
+}
+
+func (b *Block) calculateHash() string {
 	var record string
-	if validator.UUID.String() == "00000000-0000-0000-0000-000000000000" {
-		record = fmt.Sprintf("%d%s%s%s", b.Nonce, b.Timestamp, b.Data, b.PrevBlockHash)
-
-	} else {
-		record = fmt.Sprintf("%d%s%s%s%s", b.Nonce, b.Timestamp, b.Data, b.PrevBlockHash, validator.UUID)
-
-	}
+	record = fmt.Sprintf("%d%s%s%s", b.Nonce, b.Timestamp, b.Data, b.PrevBlockHash)
 	h := sha256.New()
 	h.Write([]byte(record))
 	hashed := h.Sum(nil)
 	return hex.EncodeToString(hashed)
+}
+
+// Serialize block for badgerdb
+// returns a byte representation of the block
+func (b *Block) Serialize() []byte {
+	var result bytes.Buffer
+	encoder := gob.NewEncoder(&result)
+	if err := encoder.Encode(b); err != nil {
+		log.Panic(err)
+	}
+	return result.Bytes()
+}
+
+func Deserialize(data []byte) *Block {
+	var block *Block
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+
+	if err := decoder.Decode(block); err != nil {
+		log.Panic(err)
+	}
+
+	return block
 }
