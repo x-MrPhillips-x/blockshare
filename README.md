@@ -45,3 +45,12 @@ rc, _ := blockchain.NewRideChain("path/to/token_ledger.json")
 
 tx := blockchain.RideTx{...}
 txID, err := rc.SubmitRideTx(tx)
+```
+
+To run tests:
+
+```bash
+go test ./...
+```
+📜 License
+MIT
