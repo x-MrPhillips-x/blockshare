@@ -7,6 +7,6 @@ type Transaction struct {
 }
 
 type LatLng struct {
-	Lat float64 `json:"lat"`
-	Lng float64 `json:"lng"`
+	Lat string `json:"lat"`
+	Lng string `json:"lng"`
 }

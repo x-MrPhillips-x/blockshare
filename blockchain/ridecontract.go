@@ -35,6 +35,8 @@ type RideTx struct {
 	PickupConfirmed  bool      `json:"pickUpConfirmed"`
 	DropoffConfirmed bool      `json:"dropOffConfirmed"`
 	DropoffTime      time.Time `json:"dropOffTime"`
+	DriverLocation   LatLng    `json:"driverLocation"` // This is needed for the google embedded map string
+	DriverAccepted   bool      `json:"driverAccepted"`
 }
 
 // Simulated ledger (in-memory for now)
