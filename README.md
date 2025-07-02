@@ -1,45 +1,47 @@
-# blockshare
-                           ┌──────────────────────┐
-                           │   MCR Blockchain     │
-                           │  (Golang-based PoS)  │
-                           └─────────┬────────────┘
-                                     │
-       ┌─────────────────────────────┴─────────────────────────────┐
-       │                                                           │
-┌──────▼───────┐       ┌──────────────▼─────────────┐      ┌───────▼────────┐
-│ Ride Module  │       │  Staking & Validator Logic │      │ Identity Module│
-│ (Transactions│       │  (PoS + Physical Work)     │      │ (KYC, License, │
-│ + Payments)  │       └──────────────┬─────────────┘      │ Insurance, etc)│
-└──────┬───────┘                      │                    └──────┬─────────┘
-       │                              │                           │
-┌──────▼────────┐     ┌───────────────▼────────────┐   ┌─────────▼─────────────┐
-│ Smart Contract│     │ Validator Reputation Engine │   │ External Verification │
-│ (in Golang)   │     │ (Ride Count, Reviews, etc)  │   │ APIs or Admin Tools   │
-└───────────────┘     └───────────────┬────────────┘   └───────────────────────┘
-                                     │
-                              ┌──────▼───────┐
-                              │ Block Commit │
-                              │ (via PoS +   │
-                              │ physical rep)│
-                              └──────────────┘
+# 🧱 Blockshare — Proof-of-Stake Blockchain for Rideshare
 
-| Concept                                           | Component                                         | Notes                                    |
-| ------------------------------------------------- | ------------------------------------------------- | ---------------------------------------- |
-| Rides generate transaction data                   | `Ride Module`                                     | Ride start/stop, distance, fare          |
-| Payment flows on-chain                            | `Ride Module + Smart Contract`                    | Token-based (or fiat-linked)             |
-| Drivers/riders earn validator status via activity | `Staking & Validator Logic` + `Reputation Engine` | Based on number of rides, quality, trust |
-| Validator checks: License, Insurance, etc.        | `Identity Module` + `External APIs`               | Stored off-chain w/ on-chain references  |
-| Consensus                                         | `PoS + Ride Reputation = Validator`               | Validators stake both tokens & work      |
+**Blockshare** is the decentralized transaction ledger powering [Music City Rideshare](https://www.musiccityrideshare.com).  
+Built in Go, it introduces real-world proof-of-stake via physical work — like verified ride activity — and driver participation.
 
-🔄 Current Capabilities:
-✅ Genesis Validator Onboarding
-BecomeValidator() lets the genesis driver become a validator with no min stake (bootstrapping phase).
+---
 
-✅ Ride Lifecycle Flow
-Submit Ride: SubmitRideTx() from the ride module to blockshare
+## 🚗⛓ What It Does
 
-Verify Pickup: SubmitPickupProof() using passenger-provided code
+- Validates & commits ride transactions (`RideTx`)
+- Enforces pickup/drop-off proof via secure codes
+- Allows trusted drivers to stake tokens & become validators
+- Tracks validator approvals and builds a ledger of completed rides
 
-Verify Dropoff: SubmitDropoff() with location + timestamp
+---
 
-Approval & Finalization: ApproveRideTx() to commit to ledger
+## ✨ Why This Exists
+
+Current rideshare platforms take huge cuts.  
+Blockshare empowers **drivers**, not platforms, to verify and record rides on-chain.
+
+This is part of a broader project:  
+🛠️ [musiccityrideshare.com](https://www.musiccityrideshare.com)
+
+---
+
+## 🧪 Features
+
+- 🪙 Staking and validator registration
+- 🔐 Pickup proof with confirmation code
+- 📦 JSON-based ride ledger (local block storage)
+- ⛓️ Quorum-based transaction approvals
+- ⚡ Lightweight Go module (no server needed)
+
+---
+
+## 🔧 Usage
+
+Import into any Go app:
+
+```go
+import "github.com/x-MrPhillips-x/blockshare/blockchain"
+
+rc, _ := blockchain.NewRideChain("path/to/token_ledger.json")
+
+tx := blockchain.RideTx{...}
+txID, err := rc.SubmitRideTx(tx)
