@@ -14,15 +14,16 @@ type RideChainer interface {
 	SubmitRideTx(tx RideTx) (string, error)
 	BecomeValidator(driverUUID string) error
 	StakeTokens(amount int, driverUUID string) error
-	SlashValidator(driverUUID string, reason string) error
-	VerifyDriver(driverUUID string, result bool) error
+	SlashValidator(driverUUID string, slasher string, reason string) error
+	VerifyDriver(driverUUID string, validator string, results string) error
 	GetDriverStake(driverUUID string) int
 	IsValidator(driverUUID string) bool
 	RewardValidator(validatorUUID string, amount int) error
 	ApproveRideTx(txID, validatorUUID string) error
 	RequestDriverVerification(driverUUID, requestedBy string) error
 	SubmitPickupProof(txID string, pickupCode string) error
-	SubmitDropoff(txID, dropoffLocation string) error
+	SubmitDropoff(txID string, dropoffLocation LatLng) error
+	HasActiveRide(driverUUID string) bool
 }
 
 // RideChain represents the entire blockchain composed of rideTx
@@ -63,6 +64,11 @@ func (rc *RideChain) SubmitRideTx(tx RideTx) (string, error) {
 	if tx.PaidAmount <= 0 {
 		return "", errors.New("invalid payment amount")
 	}
+
+	if rc.HasActiveRide(tx.DriverUUID) {
+		return "", fmt.Errorf("driver %s already has an active ride", tx.DriverUUID)
+	}
+
 	tx.Timestamp = time.Now()
 	tx.TxID = generateRideHash(tx)
 
@@ -282,4 +288,13 @@ func (rc *RideChain) SubmitDropoff(txID string, dropoffLocation LatLng) error {
 
 	fmt.Printf("Dropoff submitted for ride %s\n", txID)
 	return nil
+}
+
+func (rc *RideChain) HasActiveRide(driverUUID string) bool {
+	for _, tx := range rc.PendingRides {
+		if tx.DriverUUID == driverUUID && !tx.DropoffConfirmed {
+			return true
+		}
+	}
+	return false
 }

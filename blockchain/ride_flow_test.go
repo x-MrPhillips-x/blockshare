@@ -26,7 +26,7 @@ func TestRideFlow_Happy_Path(t *testing.T) {
 	err = rc.SubmitPickupProof(txID, "1931")
 	assert.Nil(t, err)
 
-	err = rc.SubmitDropoff(txID, LatLng{Lat: 36.1684, Lng: 86.8259})
+	err = rc.SubmitDropoff(txID, LatLng{Lat: "36.1684", Lng: "86.8259"})
 	assert.Nil(t, err)
 
 	err = rc.ApproveRideTx(txID, driver)
