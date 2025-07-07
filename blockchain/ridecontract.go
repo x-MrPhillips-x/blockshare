@@ -37,6 +37,14 @@ type RideTx struct {
 	DropoffTime      time.Time `json:"dropOffTime"`
 	DriverLocation   LatLng    `json:"driverLocation"` // This is needed for the google embedded map string
 	DriverAccepted   bool      `json:"driverAccepted"`
+
+	// StripeSessionId represents successful payment from rider
+	// TODO see what opportunities we have with buttons to
+	// perform refund and blah blah
+	StripeSessionId string `json:"stripeSessionId"`
+
+	// RideTxEvts capture the events of the RideTx (i.e request, accept, paid, arrived...)
+	RideTxEvts []RideTxEvt `json:"rideTxEvts"`
 }
 
 // Simulated ledger (in-memory for now)

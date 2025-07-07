@@ -15,23 +15,9 @@ type ValidatorProfile struct {
 	LastKYC     time.Time
 }
 
-type ValidatorLogEvt struct {
-	ValidatorUUID string
-	Evt           string // i.e genesis validator verifying first driver
-	Timestamp     time.Time
-}
-
 type DriverVerificationRequest struct {
 	DriverUUID  string
 	RequestedBy string
 	Timestamp   time.Time
 	Status      string
-}
-
-func (rc *RideChain) logValidatorEvent(validatorUUID, evt string) {
-	rc.ValidatorLog = append(rc.ValidatorLog, ValidatorLogEvt{
-		ValidatorUUID: validatorUUID,
-		Evt:           evt,
-		Timestamp:     time.Now(),
-	})
 }

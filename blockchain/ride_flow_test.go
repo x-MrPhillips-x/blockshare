@@ -15,7 +15,8 @@ func TestRideFlow_Happy_Path(t *testing.T) {
 	err = rc.BecomeValidator(driver)
 	assert.Nil(t, err)
 
-	txID, err := rc.SubmitRideTx(RideTx{
+	// adds RideTx to pendingRideTxs
+	tx, err := rc.SubmitPendingRideTx(RideTx{
 		RiderUUID:  rider,
 		DriverUUID: driver,
 		PaidAmount: 100,
@@ -23,16 +24,20 @@ func TestRideFlow_Happy_Path(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	err = rc.SubmitPickupProof(txID, "1931")
+	err = rc.SubmitPickupProof(tx, "1931")
 	assert.Nil(t, err)
 
-	err = rc.SubmitDropoff(txID, LatLng{Lat: "36.1684", Lng: "86.8259"})
+	err = rc.SubmitDropoff(tx, LatLng{Lat: "36.1684", Lng: "86.8259"})
 	assert.Nil(t, err)
 
-	err = rc.ApproveRideTx(txID, driver)
+	// tx.TxID = generateRideHash(tx)
+	// happens here now
+	txID, err := rc.ApproveRideTx(tx, driver)
 	assert.Nil(t, err)
 
 	_, ok := RideLedger[txID]
 	assert.True(t, ok)
+
+	// todo assert RideTxEvts
 
 }
