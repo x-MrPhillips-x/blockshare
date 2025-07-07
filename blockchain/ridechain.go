@@ -11,7 +11,7 @@ import (
 
 // RideChainer represents the ride related chain behavior
 type RideChainer interface {
-	SubmitRideTx(tx RideTx) (string, error)
+	SubmitPendingRideTx(tx RideTx) (RideTx, error)
 	BecomeValidator(driverUUID string) error
 	StakeTokens(amount int, driverUUID string) error
 	SlashValidator(driverUUID string, slasher string, reason string) error
@@ -19,20 +19,20 @@ type RideChainer interface {
 	GetDriverStake(driverUUID string) int
 	IsValidator(driverUUID string) bool
 	RewardValidator(validatorUUID string, amount int) error
-	ApproveRideTx(txID, validatorUUID string) error
+	ApproveRideTx(tx RideTx, validatorUUID string) (string, error)
 	RequestDriverVerification(driverUUID, requestedBy string) error
-	SubmitPickupProof(txID string, pickupCode string) error
-	SubmitDropoff(txID string, dropoffLocation LatLng) error
+	SubmitPickupProof(tx RideTx, pickupCode string) error
+	SubmitDropoff(tx RideTx, dropoffLocation LatLng) error
 	HasActiveRide(driverUUID string) bool
 }
 
 // RideChain represents the entire blockchain composed of rideTx
 type RideChain struct {
-	DriverStakes         map[string]int // driverUUID → amount
-	TokenLedger          *TokenLedger
-	Validators           map[string]bool // driverUUID -> isValidator
-	ValidatorLog         []ValidatorLogEvt
-	PendingRides         map[string]RideTx          // txID → RideTx
+	DriverStakes map[string]int // driverUUID → amount
+	TokenLedger  *TokenLedger
+	Validators   map[string]bool // driverUUID -> isValidator
+	// PendingRideTxs map of riderUUID -> RideTx
+	PendingRideTxs       map[string]RideTx
 	RideApprovals        map[string]map[string]bool // txID → validatorUUID → approval
 	ApprovalQuorum       int                        // min approvals required
 	PendingVerifications map[string]DriverVerificationRequest
@@ -48,7 +48,7 @@ func NewRideChain(ledgeFileLocation string) (*RideChain, error) {
 		TokenLedger:          ledger,
 		DriverStakes:         make(map[string]int),
 		Validators:           make(map[string]bool),
-		PendingRides:         make(map[string]RideTx),
+		PendingRideTxs:       make(map[string]RideTx),
 		RideApprovals:        make(map[string]map[string]bool),
 		ApprovalQuorum:       1, // for now there is only genesis validator
 		PendingVerifications: make(map[string]DriverVerificationRequest),
@@ -56,27 +56,37 @@ func NewRideChain(ledgeFileLocation string) (*RideChain, error) {
 	}, nil
 }
 
-// SubmitRideTx validates and stores the ride
-func (rc *RideChain) SubmitRideTx(tx RideTx) (string, error) {
+// SubmitPendingRideTx adds a active RideTx to the pendingRideTx queue
+// once the rideTx is complete this RideTx will move to AwaitingApproval
+func (rc *RideChain) SubmitPendingRideTx(tx RideTx) (RideTx, error) {
 	if tx.DriverUUID == "" || tx.RiderUUID == "" {
-		return "", errors.New("invalid ride: missing driver or rider ID")
+		return RideTx{}, errors.New("invalid ride: missing driver or rider ID")
 	}
 	if tx.PaidAmount <= 0 {
-		return "", errors.New("invalid payment amount")
+		return RideTx{}, errors.New("invalid payment amount")
 	}
 
 	if rc.HasActiveRide(tx.DriverUUID) {
-		return "", fmt.Errorf("driver %s already has an active ride", tx.DriverUUID)
+		return RideTx{}, fmt.Errorf("driver %s already has an active ride", tx.DriverUUID)
 	}
 
 	tx.Timestamp = time.Now()
-	tx.TxID = generateRideHash(tx)
 
-	rc.PendingRides[tx.TxID] = tx
-	rc.RideApprovals[tx.TxID] = make(map[string]bool)
+	// TODO not sure if we shoud have rideHash generated at this point.
+	// Seems like this this should happen once the RideTx has been validate
+	// by a validator.
+	// tx.TxID = generateRideHash(tx)
 
-	fmt.Printf("Ride submitted: %s\n", tx.TxID)
-	return tx.TxID, nil
+	// TODO add the stripe payment details
+	tx.RideTxEvts = append(tx.RideTxEvts, RideTxEvt{
+		EventType: RiderPaymentRecieved,
+		Timestamp: time.Now(),
+	})
+
+	rc.PendingRideTxs[tx.RiderUUID] = tx
+
+	fmt.Printf("Ride submitted: %v\n", tx)
+	return tx, nil
 }
 
 // TODO guard with mutex
@@ -88,7 +98,8 @@ func (rc *RideChain) BecomeValidator(driverUUID string) error {
 	// also stake the minValidatorStake?
 	if len(rc.Validators) == 0 {
 		rc.Validators[driverUUID] = true
-		rc.logValidatorEvent(driverUUID, "let there be light! genesis validator created")
+		// todo update RideTxEvts
+		// rc.logValidatorEvent(driverUUID, "let there be light! genesis validator created")
 		return nil
 	}
 
@@ -97,7 +108,9 @@ func (rc *RideChain) BecomeValidator(driverUUID string) error {
 	}
 
 	rc.Validators[driverUUID] = true
-	rc.logValidatorEvent(driverUUID, "became a validator")
+	// todo update RideTxEvts
+
+	// rc.logValidatorEvent(driverUUID, "became a validator")
 
 	return nil
 }
@@ -131,11 +144,16 @@ func (rc *RideChain) SlashValidator(driverUUID string, slasher string, reason st
 
 	slashedAmount := stake / 2
 	rc.TokenLedger.Stakes[driverUUID] -= slashedAmount
-	rc.logValidatorEvent(driverUUID, fmt.Sprintf("was slashed %d tokens", slashedAmount))
+	// todo update RideTxEvts
+
+	// rc.logValidatorEvent(driverUUID, fmt.Sprintf("was slashed %d tokens", slashedAmount))
 
 	// Remove validator status
 	delete(rc.Validators, driverUUID)
-	rc.logValidatorEvent(driverUUID, "removed from validators")
+
+	// todo update RideTxEvts
+
+	// rc.logValidatorEvent(driverUUID, "removed from validators")
 
 	fmt.Printf("Validator %s was slashed by validator %s for %d tokens. Reason: %s\n",
 		driverUUID, slasher, slashedAmount, reason)
@@ -172,12 +190,18 @@ func (rc *RideChain) VerifyDriver(driverUUID string, validator string, results s
 	rc.PendingVerifications[driverUUID] = request
 
 	fmt.Printf("Driver %s verified by validator %s with results %s\n", driverUUID, validator, results)
-	rc.logValidatorEvent(validator, fmt.Sprintf("Driver %s verified by validator %s with results %s\n", driverUUID, validator, results))
+
+	// todo update RideTxEvts
+
+	// rc.logValidatorEvent(validator, fmt.Sprintf("Driver %s verified by validator %s with results %s\n", driverUUID, validator, results))
 	return nil
 }
 
 func (rc *RideChain) GetDriverStake(driverUUID string) int {
 	return rc.DriverStakes[driverUUID]
+}
+
+func (rc *RideChain) GetPendingRideTx() {
 }
 
 func (rc *RideChain) IsValidator(driverUUID string) bool {
@@ -197,34 +221,48 @@ func (rc *RideChain) RewardValidator(validatorUUID string, amount int) error {
 	return rc.TokenLedger.SaveToFile()
 }
 
-func (rc *RideChain) ApproveRideTx(txID, validatorUUID string) error {
+// ApproveRideTx approve and complete the RideTx after this
+// the driver will be able to make trx again
+func (rc *RideChain) ApproveRideTx(tx RideTx, validatorUUID string) (string, error) {
 	if !rc.IsValidator(validatorUUID) {
-		return fmt.Errorf("%s is not a validator", validatorUUID)
+		return "", fmt.Errorf("%s is not a validator", validatorUUID)
 	}
-	tx, exists := rc.PendingRides[txID]
+	tx, exists := rc.PendingRideTxs[tx.RiderUUID]
 	if !exists {
-		return fmt.Errorf("ride %s not found", txID)
+		return "", fmt.Errorf("ride %v not found", tx)
 	}
-	if rc.RideApprovals[txID][validatorUUID] {
-		return fmt.Errorf("validator %s already approved ride %s", validatorUUID, txID)
+	if rc.RideApprovals[tx.RiderUUID][validatorUUID] {
+		return "", fmt.Errorf("validator %v already approved ride %v", validatorUUID, tx)
 	}
 
 	// Register approval
-	rc.RideApprovals[txID][validatorUUID] = true
-	rc.logValidatorEvent(validatorUUID, fmt.Sprintf("approved txID %s", txID))
+	rc.RideApprovals[tx.RiderUUID] = make(map[string]bool)
+	rc.RideApprovals[tx.RiderUUID][validatorUUID] = true
+
+	// todo remove from from pendingRidesTxs
+	// todo update RideTxEvts
+
+	// rc.logValidatorEvent(validatorUUID, fmt.Sprintf("approved txID %s", txID))
 
 	// Count approvals
-	if len(rc.RideApprovals[txID]) >= rc.ApprovalQuorum {
+	if len(rc.RideApprovals[tx.RiderUUID]) >= rc.ApprovalQuorum {
+		tx.TxID = generateRideHash(tx)
+
 		// Move to ledger
-		RideLedger[txID] = tx
-		delete(rc.PendingRides, txID)
-		delete(rc.RideApprovals, txID)
-		fmt.Printf("Ride %s approved and committed\n", txID)
-		rc.logValidatorEvent(validatorUUID, fmt.Sprintf("approved txID and commited %s", txID))
+		RideLedger[tx.TxID] = tx
+		delete(rc.PendingRideTxs, tx.RiderUUID)
+		delete(rc.RideApprovals, tx.RiderUUID)
+		fmt.Printf("Ride %v approved and committed\n", tx)
+
+		// todo update RideTxEvts
+
+		// rc.logValidatorEvent(validatorUUID, fmt.Sprintf("approved txID and commited %s", txID))
 
 	}
 
-	return nil
+	fmt.Printf("RideTx approved: %v\n", tx.TxID)
+
+	return tx.TxID, nil
 }
 
 func (rc *RideChain) RequestDriverVerification(driverUUID, requestedBy string) error {
@@ -240,58 +278,62 @@ func (rc *RideChain) RequestDriverVerification(driverUUID, requestedBy string) e
 	return nil
 }
 
-func (rc *RideChain) SubmitPickupProof(txID string, pickupCode string) error {
-	tx, exists := rc.PendingRides[txID]
+func (rc *RideChain) SubmitPickupProof(tx RideTx, pickupCode string) error {
+	tx, exists := rc.PendingRideTxs[tx.RiderUUID]
 	if !exists {
-		return fmt.Errorf("ride %s not found", txID)
+		return fmt.Errorf("rideTx %v not found", tx)
 	}
 
 	if tx.PickupConfirmed {
-		return fmt.Errorf("pickup already confirmed for ride %s", txID)
+		return fmt.Errorf("pickup already confirmed for rideTx %v", tx)
 	}
 
 	if tx.PickupCode != pickupCode {
-		return fmt.Errorf("invalid pickup code for ride %s", txID)
+		return fmt.Errorf("invalid pickup code for rideTx %v", tx)
 	}
 
 	// Confirm pickup
 	tx.PickupConfirmed = true
-	rc.PendingRides[txID] = tx // save updated tx
+	rc.PendingRideTxs[tx.RiderUUID] = tx // save updated tx
 
-	rc.logValidatorEvent(tx.DriverUUID, fmt.Sprintf("pickup code confirmed for ride %s", txID))
+	// todo update RideTxEvts
 
-	fmt.Printf("Pickup code confirmed for ride %s\n", txID)
+	// rc.logValidatorEvent(tx.DriverUUID, fmt.Sprintf("pickup code confirmed for ride %s", txID))
+
+	fmt.Printf("Pickup code confirmed for rideTx %v\n", tx)
 	return nil
 }
 
-func (rc *RideChain) SubmitDropoff(txID string, dropoffLocation LatLng) error {
-	tx, exists := rc.PendingRides[txID]
+func (rc *RideChain) SubmitDropoff(tx RideTx, dropoffLocation LatLng) error {
+	tx, exists := rc.PendingRideTxs[tx.RiderUUID]
 	if !exists {
-		return fmt.Errorf("ride %s not found", txID)
+		return fmt.Errorf("rideTx %v not found", tx)
 	}
 
 	if !tx.PickupConfirmed {
-		return fmt.Errorf("pickup not confirmed for ride %s", txID)
+		return fmt.Errorf("pickup not confirmed for ride %v", tx)
 	}
 
 	if tx.DropoffConfirmed {
-		return fmt.Errorf("dropoff already submitted for ride %s", txID)
+		return fmt.Errorf("dropoff already submitted for ride %v", tx)
 	}
 
 	tx.DropoffLocation = dropoffLocation
 	tx.DropoffConfirmed = true
 	tx.DropoffTime = time.Now()
 
-	rc.PendingRides[txID] = tx // update with drop-off
+	rc.PendingRideTxs[tx.RiderUUID] = tx // update with drop-off
 
-	rc.logValidatorEvent(tx.DriverUUID, fmt.Sprintf("dropoff submitted for ride %s", txID))
+	// todo update RideTxEvts
 
-	fmt.Printf("Dropoff submitted for ride %s\n", txID)
+	// rc.logValidatorEvent(tx.DriverUUID, fmt.Sprintf("dropoff submitted for ride %s", txID))
+
+	fmt.Printf("Dropoff submitted for rideTx %v\n", tx)
 	return nil
 }
 
 func (rc *RideChain) HasActiveRide(driverUUID string) bool {
-	for _, tx := range rc.PendingRides {
+	for _, tx := range rc.PendingRideTxs {
 		if tx.DriverUUID == driverUUID && !tx.DropoffConfirmed {
 			return true
 		}
