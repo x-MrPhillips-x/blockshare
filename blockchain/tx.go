@@ -1,6 +1,8 @@
 package blockchain
 
-import "time"
+import (
+	"time"
+)
 
 type Transaction struct {
 	PickUp  LatLng `json:"pickUp"`

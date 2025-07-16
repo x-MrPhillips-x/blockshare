@@ -59,34 +59,80 @@ func NewRideChain(ledgeFileLocation string) (*RideChain, error) {
 // SubmitPendingRideTx adds a active RideTx to the pendingRideTx queue
 // once the rideTx is complete this RideTx will move to AwaitingApproval
 func (rc *RideChain) SubmitPendingRideTx(tx RideTx) (RideTx, error) {
-	if tx.DriverUUID == "" || tx.RiderUUID == "" {
-		return RideTx{}, errors.New("invalid ride: missing driver or rider ID")
+	if err := ValidateRideTx(tx); err != nil {
+		return RideTx{}, err
 	}
-	if tx.PaidAmount <= 0 {
-		return RideTx{}, errors.New("invalid payment amount")
-	}
-
-	if rc.HasActiveRide(tx.DriverUUID) {
-		return RideTx{}, fmt.Errorf("driver %s already has an active ride", tx.DriverUUID)
-	}
-
-	tx.Timestamp = time.Now()
-
 	// TODO not sure if we shoud have rideHash generated at this point.
 	// Seems like this this should happen once the RideTx has been validate
 	// by a validator.
 	// tx.TxID = generateRideHash(tx)
 
-	// TODO add the stripe payment details
-	tx.RideTxEvts = append(tx.RideTxEvts, RideTxEvt{
-		EventType: RiderPaymentRecieved,
-		Timestamp: time.Now(),
-	})
-
 	rc.PendingRideTxs[tx.RiderUUID] = tx
 
 	fmt.Printf("Ride submitted: %v\n", tx)
 	return tx, nil
+}
+
+// ValidateRideTx
+// also adds the RiderPaymentReceived
+func ValidateRideTx(tx RideTx) error {
+	// 1. Required field checks
+	// todo tx.TxID is not given until sumission to mempool,
+	// should we already have this by now?
+	if tx.DriverUUID == "" || tx.RiderUUID == "" {
+		return errors.New("missing core identifiers")
+	}
+	if tx.PaidAmount <= 0 {
+		return errors.New("invalid or missing PaidAmount")
+	}
+	if tx.StripeSessionId == "" {
+		return errors.New("missing Stripe session ID")
+	}
+
+	if tx.PickupCode == "" {
+		return errors.New("missing pickup code")
+	}
+
+	// 2. Location validity
+	if tx.PickupLocation.Lat == "0" || tx.PickupLocation.Lng == "0" {
+		return errors.New("invalid pickup coordinates")
+	}
+
+	// todo check the routes for drop off lat lng for confirmed dropoff
+	if tx.ComputedRoute.Destination == "" {
+		return errors.New("invalid dropoff destination")
+	}
+
+	// 3. Event history lifecycle (simple sanity check)
+	if len(tx.RideTxEvts) == 0 {
+		return errors.New("no ride events recorded")
+	}
+
+	// Check logical flow
+	// todo add dropoffEvt
+	// todo paidEvt
+	var hasRideRequestedEvt, hasDriverAcceptedEvt, hasRiderPaymentRecievedEvt bool
+	for _, evt := range tx.RideTxEvts {
+		switch evt.EventType {
+		case RideRequested:
+			hasRideRequestedEvt = true
+		case DriverAccepted:
+			hasDriverAcceptedEvt = true
+		case RiderPaymentRecieved:
+			hasRiderPaymentRecievedEvt = true
+		}
+	}
+
+	if !hasRideRequestedEvt || !hasDriverAcceptedEvt || !hasRiderPaymentRecievedEvt {
+		return errors.New("ride transaction event flow incomplete")
+	}
+
+	// timestamp sanity because these operations should take a few minutes
+	if tx.TimeRequested.After(time.Now().Add(3 * time.Minute)) {
+		return errors.New("invalid or future timestamp")
+	}
+
+	return nil
 }
 
 // TODO guard with mutex
@@ -109,7 +155,6 @@ func (rc *RideChain) BecomeValidator(driverUUID string) error {
 
 	rc.Validators[driverUUID] = true
 	// todo update RideTxEvts
-
 	// rc.logValidatorEvent(driverUUID, "became a validator")
 
 	return nil

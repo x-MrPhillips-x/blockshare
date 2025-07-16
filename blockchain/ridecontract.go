@@ -7,31 +7,24 @@ import (
 	"time"
 )
 
-// RideContract represents the ride related chain behavior
-// type RideContract interface {
-// 	SubmitRide(tx RideTx) error
-// 	BecomeValidator(driverUUID string) error
-// 	StakeTokens(amount int, driverUUID string) error
-// 	SlashValidator(driverUUID string, reason string) error
-// 	VerifyDriver(driverUUID string, result bool) error
-// }
-
 // Core ride transaction model
 type RideTx struct {
 	TxID             string    `json:"txID"`
 	DriverUUID       string    `json:"driverUUID"`
 	RiderUUID        string    `json:"riderUUID"`
-	TimeRequested    time.Time `json:"timeRequested"`
+	TimeRequested    time.Time `json:"timeRequested"` // time rideTx construction began
 	EstimatedPickup  time.Time `json:"estimatedPickup"`
 	EstimatedDropoff time.Time `json:"estimatedDropoff"`
 	PickupLocation   LatLng    `json:"pickupLocation"`
+
+	// todo we need to get this from the computedRoutes.destination if possible
+	// the destination needs to be converted to lat,lng
 	DropoffLocation  LatLng    `json:"dropoffLocation"`
-	Passengers       int       `json:"passengers"`
-	Luggage          int       `json:"luggage"`
+	Passengers       int       `json:"passengers"` // todo deprecate put inside vehicle
+	Luggage          int       `json:"luggage"`    // todo deprecate put inside vehicle
 	PaidAmount       int       `json:"paidAmount"`
 	PickupCode       string    `json:"pickupCode"`
 	RouteHash        string    `json:"routeHash"` // optional full route hash
-	Timestamp        time.Time `json:"timestamp"` // when submitted on chain
 	PickupConfirmed  bool      `json:"pickUpConfirmed"`
 	DropoffConfirmed bool      `json:"dropOffConfirmed"`
 	DropoffTime      time.Time `json:"dropOffTime"`
@@ -45,6 +38,22 @@ type RideTx struct {
 
 	// RideTxEvts capture the events of the RideTx (i.e request, accept, paid, arrived...)
 	RideTxEvts []RideTxEvt `json:"rideTxEvts"`
+
+	// Vehicle details
+	Vehicle Vehicle `json:"vehicle"`
+
+	// ComputedRoute should have all the information on pickup/dropoff times/miles away
+	ComputedRoute ComputedRoute `json:"computedRoute"`
+}
+
+type Vehicle struct {
+	Brand string `json:"brand"`
+	Year  string `json:"year"`
+	Model string `json:"model"`
+	Color string `json:"color"`
+	Plate string `json:"plate"`
+	Img   string `json:"img"`
+	Seats int    `json:"seats"`
 }
 
 // Simulated ledger (in-memory for now)
@@ -55,4 +64,22 @@ func generateRideHash(tx RideTx) string {
 	data, _ := json.Marshal(tx)
 	hash := sha256.Sum256(data)
 	return fmt.Sprintf("%x", hash[:])
+}
+
+type ComputedRoute struct {
+	UUID             string  `json:"uuid"`
+	Brand            string  `json:"brand"`      // todo deprecate part of vehicle
+	Year             string  `json:"year"`       // todo deprecate part of vehicle
+	Model            string  `json:"model"`      // todo deprecate part of vehicle
+	Color            string  `json:"color"`      // todo deprecate part of vehicle
+	Img              string  `json:"img"`        // todo deprecate part of vehicle
+	Price            int     `json:"price"`      // cents
+	TrustScore       float64 `json:"trustScore"` // todo deprecate should be able to show this with the driver
+	Departure        string  `json:"departure"`
+	EstimatedArrival string  `json:"arrival"`
+	Destination      string  `json:"destination"`
+	MilesAway        int     `json:"milesAway"`
+	MinutesAway      int     `json:"minutesAway"`
+	TravelTime       int     `json:"travelTime"`
+	TravelMiles      int     `json:"travelMiles"`
 }
