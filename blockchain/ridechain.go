@@ -62,12 +62,8 @@ func (rc *RideChain) SubmitPendingRideTx(tx RideTx) (RideTx, error) {
 	if err := ValidateRideTx(tx); err != nil {
 		return RideTx{}, err
 	}
-	// TODO not sure if we shoud have rideHash generated at this point.
-	// Seems like this this should happen once the RideTx has been validate
-	// by a validator.
-	// tx.TxID = generateRideHash(tx)
 
-	rc.PendingRideTxs[tx.RiderUUID] = tx
+	rc.PendingRideTxs[tx.DriverUUID] = tx
 
 	fmt.Printf("Ride submitted: %v\n", tx)
 	return tx, nil
@@ -272,34 +268,32 @@ func (rc *RideChain) ApproveRideTx(tx RideTx, validatorUUID string) (string, err
 	if !rc.IsValidator(validatorUUID) {
 		return "", fmt.Errorf("%s is not a validator", validatorUUID)
 	}
-	tx, exists := rc.PendingRideTxs[tx.RiderUUID]
+	tx, exists := rc.PendingRideTxs[tx.DriverUUID]
 	if !exists {
 		return "", fmt.Errorf("ride %v not found", tx)
 	}
-	if rc.RideApprovals[tx.RiderUUID][validatorUUID] {
+	if rc.RideApprovals[tx.DriverUUID][validatorUUID] {
 		return "", fmt.Errorf("validator %v already approved ride %v", validatorUUID, tx)
 	}
 
 	// Register approval
-	rc.RideApprovals[tx.RiderUUID] = make(map[string]bool)
-	rc.RideApprovals[tx.RiderUUID][validatorUUID] = true
+	rc.RideApprovals[tx.DriverUUID] = make(map[string]bool)
+	rc.RideApprovals[tx.DriverUUID][validatorUUID] = true
 
-	// todo remove from from pendingRidesTxs
-	// todo update RideTxEvts
-
-	// rc.logValidatorEvent(validatorUUID, fmt.Sprintf("approved txID %s", txID))
+	tx.RideTxEvts = append(tx.RideTxEvts, RideTxEvt{
+		EventType: RideApproved,
+		Timestamp: time.Now(),
+	})
 
 	// Count approvals
-	if len(rc.RideApprovals[tx.RiderUUID]) >= rc.ApprovalQuorum {
+	if len(rc.RideApprovals[tx.DriverUUID]) >= rc.ApprovalQuorum {
 		tx.TxID = generateRideHash(tx)
 
 		// Move to ledger
 		RideLedger[tx.TxID] = tx
-		delete(rc.PendingRideTxs, tx.RiderUUID)
-		delete(rc.RideApprovals, tx.RiderUUID)
+		delete(rc.PendingRideTxs, tx.DriverUUID)
+		delete(rc.RideApprovals, tx.DriverUUID)
 		fmt.Printf("Ride %v approved and committed\n", tx)
-
-		// todo update RideTxEvts
 
 		// rc.logValidatorEvent(validatorUUID, fmt.Sprintf("approved txID and commited %s", txID))
 
