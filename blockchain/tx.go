@@ -1,6 +1,8 @@
 package blockchain
 
-import "time"
+import (
+	"time"
+)
 
 type Transaction struct {
 	PickUp  LatLng `json:"pickUp"`
@@ -16,17 +18,16 @@ type LatLng struct {
 type RideTxEventType string
 
 const (
-	RideRequested        RideTxEventType = "RideRequested"
-	DriverAccepted       RideTxEventType = "DriverAccepted"
+	RideRequested  RideTxEventType = "RideRequested"
+	DriverAccepted RideTxEventType = "DriverAccepted"
+
+	// RideApproved represents validator finalizing this RideTx
 	RideApproved         RideTxEventType = "RideApproved"
 	PickupVerified       RideTxEventType = "PickupVerified"
 	DropoffConfirmed     RideTxEventType = "DropoffConfirmed"
 	InsuranceVerified    RideTxEventType = "InsuranceVerified"
 	DriverValidated      RideTxEventType = "DriverValidated"
 	RiderPaymentRecieved RideTxEventType = "RiderPaymentRecieved"
-
-	// ValidationEvt represents validator finalizing this RideTx
-	ValidationEvt RideTxEventType = "ValidationEvt"
 )
 
 type RideTxEvt struct {
