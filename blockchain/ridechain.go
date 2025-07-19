@@ -318,7 +318,7 @@ func (rc *RideChain) RequestDriverVerification(driverUUID, requestedBy string) e
 }
 
 func (rc *RideChain) SubmitPickupProof(tx RideTx, pickupCode string) error {
-	tx, exists := rc.PendingRideTxs[tx.RiderUUID]
+	tx, exists := rc.PendingRideTxs[tx.DriverUUID]
 	if !exists {
 		return fmt.Errorf("rideTx %v not found", tx)
 	}

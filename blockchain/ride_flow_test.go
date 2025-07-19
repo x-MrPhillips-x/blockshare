@@ -16,11 +16,24 @@ func TestRideFlow_Happy_Path(t *testing.T) {
 	assert.Nil(t, err)
 
 	// adds RideTx to pendingRideTxs
+	rideTxEvts := []RideTxEvt{}
+	rideTxEvts = append(rideTxEvts, RideTxEvt{
+		EventType: RideRequested,
+	}, RideTxEvt{
+		EventType: DriverAccepted,
+	}, RideTxEvt{
+		EventType: RiderPaymentRecieved,
+	})
 	tx, err := rc.SubmitPendingRideTx(RideTx{
-		RiderUUID:  rider,
-		DriverUUID: driver,
-		PaidAmount: 100,
-		PickupCode: "1931",
+		RiderUUID:       rider,
+		DriverUUID:      driver,
+		PaidAmount:      100,
+		PickupCode:      "1931",
+		StripeSessionId: "someStripeSuccessString",
+		ComputedRoute: ComputedRoute{
+			Destination: "some destination hopefully not final😅",
+		},
+		RideTxEvts: rideTxEvts,
 	})
 	assert.Nil(t, err)
 
