@@ -90,7 +90,7 @@ func ValidateRideTx(tx RideTx) error {
 	}
 
 	// 2. Location validity
-	if tx.PickupLocation.Lat == "0" || tx.PickupLocation.Lng == "0" {
+	if tx.PickupLocation.Lat == "" || tx.PickupLocation.Lng == "" {
 		return errors.New("invalid pickup coordinates")
 	}
 
