@@ -34,6 +34,10 @@ func TestRideFlow_Happy_Path(t *testing.T) {
 			Destination: "some destination hopefully not final😅",
 		},
 		RideTxEvts: rideTxEvts,
+		PickupLocation: LatLng{
+			Lat: "36.00000",
+			Lng: "-86.00000",
+		},
 	})
 	assert.Nil(t, err)
 
