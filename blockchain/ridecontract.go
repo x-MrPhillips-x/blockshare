@@ -17,6 +17,9 @@ type RideTx struct {
 	EstimatedDropoff time.Time `json:"estimatedDropoff"`
 	PickupLocation   LatLng    `json:"pickupLocation"`
 
+	// PickUpPlaceDetails represent the place details at the pickup location
+	PickUpPlaceDetails PlaceDetails `json:"pickUpPlaceDetails"`
+
 	// todo we need to get this from the computedRoutes.destination if possible
 	// the destination needs to be converted to lat,lng
 	DropoffLocation  LatLng    `json:"dropoffLocation"`
@@ -44,6 +47,15 @@ type RideTx struct {
 
 	// ComputedRoute should have all the information on pickup/dropoff times/miles away
 	ComputedRoute ComputedRoute `json:"computedRoute"`
+}
+
+// PlaceDetails present details for example type of place is grocery_store,
+// meaning driver may have passenger with groceries
+type PlaceDetails struct {
+	Types            []string `json:"types"` // https://developers.google.com/maps/documentation/places/web-service/place-types
+	PlaceId          string   `json:"placeId"`
+	DisplayName      string   `json:"displayName"` // name displayed on marquee of place
+	FormattedAddress string   `json:"formattedAddress"`
 }
 
 type Vehicle struct {
