@@ -28,23 +28,16 @@ func TestRideFlow_Happy_Path(t *testing.T) {
 		RiderUUID:       rider,
 		DriverUUID:      driver,
 		PaidAmount:      100,
-		PickupCode:      "1931",
-		StripeSessionId: "someStripeSuccessString",
-		ComputedRoute: ComputedRoute{
-			Destination: "some destination hopefully not final😅",
-		},
-		RideTxEvts: rideTxEvts,
-		PickupLocation: LatLng{
-			Lat: "36.00000",
-			Lng: "-86.00000",
-		},
+		RideTxEvts:      rideTxEvts,
+		PickupLocation:  "South Nashville",
+		DropOffLocation: "Downtown Area",
 	})
 	assert.Nil(t, err)
 
-	err = rc.SubmitPickupProof(tx, "1931")
+	err = rc.SubmitPickupProof(tx)
 	assert.Nil(t, err)
 
-	err = rc.SubmitDropoff(tx, LatLng{Lat: "36.1684", Lng: "86.8259"})
+	err = rc.SubmitDropoff(tx, "Downtown Area")
 	assert.Nil(t, err)
 
 	// tx.TxID = generateRideHash(tx)

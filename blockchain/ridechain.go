@@ -81,22 +81,14 @@ func ValidateRideTx(tx RideTx) error {
 	if tx.PaidAmount <= 0 {
 		return errors.New("invalid or missing PaidAmount")
 	}
-	if tx.StripeSessionId == "" {
-		return errors.New("missing Stripe session ID")
-	}
-
-	if tx.PickupCode == "" {
-		return errors.New("missing pickup code")
-	}
 
 	// 2. Location validity
-	if tx.PickupLocation.Lat == "" || tx.PickupLocation.Lng == "" {
-		return errors.New("invalid pickup coordinates")
+	if tx.PickupLocation == "" {
+		return errors.New("invalid pickup location")
 	}
 
-	// todo check the routes for drop off lat lng for confirmed dropoff
-	if tx.ComputedRoute.Destination == "" {
-		return errors.New("invalid dropoff destination")
+	if tx.DropOffLocation == "" {
+		return errors.New("invalid drop off location")
 	}
 
 	// 3. Event history lifecycle (simple sanity check)
@@ -317,7 +309,7 @@ func (rc *RideChain) RequestDriverVerification(driverUUID, requestedBy string) e
 	return nil
 }
 
-func (rc *RideChain) SubmitPickupProof(tx RideTx, pickupCode string) error {
+func (rc *RideChain) SubmitPickupProof(tx RideTx) error {
 	tx, exists := rc.PendingRideTxs[tx.DriverUUID]
 	if !exists {
 		return fmt.Errorf("rideTx %v not found", tx)
@@ -325,10 +317,6 @@ func (rc *RideChain) SubmitPickupProof(tx RideTx, pickupCode string) error {
 
 	if tx.PickupConfirmed {
 		return fmt.Errorf("pickup already confirmed for rideTx %v", tx)
-	}
-
-	if tx.PickupCode != pickupCode {
-		return fmt.Errorf("invalid pickup code for rideTx %v", tx)
 	}
 
 	// Confirm pickup
@@ -343,7 +331,7 @@ func (rc *RideChain) SubmitPickupProof(tx RideTx, pickupCode string) error {
 	return nil
 }
 
-func (rc *RideChain) SubmitDropoff(tx RideTx, dropoffLocation LatLng) error {
+func (rc *RideChain) SubmitDropoff(tx RideTx, dropoffLocation string) error {
 	tx, exists := rc.PendingRideTxs[tx.RiderUUID]
 	if !exists {
 		return fmt.Errorf("rideTx %v not found", tx)
@@ -357,7 +345,7 @@ func (rc *RideChain) SubmitDropoff(tx RideTx, dropoffLocation LatLng) error {
 		return fmt.Errorf("dropoff already submitted for ride %v", tx)
 	}
 
-	tx.DropoffLocation = dropoffLocation
+	tx.DropOffLocation = dropoffLocation
 	tx.DropoffConfirmed = true
 	tx.DropoffTime = time.Now()
 
